@@ -1,0 +1,24 @@
+parameters:
+  aaxis_webpack_bild_dir: build
+
+services:
+  AAXIS\Bundle\WebpackBundle\Command\WebpackBuildCommand:
+    arguments:
+      - '@aaxis_webpack.providor.webpack_config'
+      - '@oro_asset.node_process_factory'
+      - '%oro_asset.npm_path%'
+      - '%oro_asset.build_timeout%'
+      - '%oro_asset.npm_install_timeout%'
+      - '%aaxis_webpack_bild_dir%'
+    tags:
+      - { name: console.command, command: 'aaxis:webpack:build' }
+  AAXIS\Bundle\WebpackBundle\Command\DumpWebpackConfigCommand:
+    arguments:
+      - '@aaxis_webpack.providor.webpack_config'
+    tags:
+      - { name: console.command, command: 'aaxis:webpack:dump' }
+  aaxis_webpack.providor.webpack_config:
+    class: AAXIS\Bundle\WebpackBundle\Provider\WebpackConfigProvider
+    arguments:
+      - '@oro_layout.theme_manager'
+      - '%kernel.bundles%'
