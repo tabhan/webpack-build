@@ -42,43 +42,30 @@ class WebpackBuildCommand extends Command
     protected $npmInstallTimeout;
 
     /**
-     * @var WebpackConfigProvider
-     */
-    protected $configProvidor;
-
-    /**
-     * @var string
-     */
-    protected $buildDir;
-
-    /**
      * @var string
      */
     protected $projectDir;
 
     /**
-     * AAXISWebpackBuildCommand constructor.
-     * @param WebpackConfigProvider $configProvider
+     * WebpackBuildCommand constructor.
      * @param NodeProcessFactory $nodeProcessFactory
      * @param string $npmPath
-     * @param float|int|null $buildTimeout
-     * @param float|int|null $npmInstallTimeout
-     * @param string $buildDir
+     * @param $npmInstallTimeout
+     * @param $buildTimeout
+     * @param $projectDir
      */
     public function __construct(
-        WebpackConfigProvider $configProvider,
         NodeProcessFactory $nodeProcessFactory,
         string $npmPath,
-        $buildTimeout,
         $npmInstallTimeout,
-        $buildDir)
+        $buildTimeout,
+        $projectDir)
     {
-        $this->configProvidor = $configProvider;
         $this->nodeProcessFactory = $nodeProcessFactory;
         $this->npmPath = $npmPath;
         $this->buildTimeout = $buildTimeout;
         $this->npmInstallTimeout = $npmInstallTimeout;
-        $this->buildDir = $buildDir;
+        $this->projectDir=$projectDir;
         parent::__construct();
     }
 
@@ -86,7 +73,7 @@ class WebpackBuildCommand extends Command
     protected function configure()
     {
         $this->setDescription(
-            'The command runs webpack to build assets.'
+            'The command runs webpack to build customized public resources.'
         )->addArgument(
             'theme',
             InputArgument::OPTIONAL,
@@ -102,7 +89,7 @@ class WebpackBuildCommand extends Command
             'npm-install',
             'i',
             InputOption::VALUE_NONE,
-            'Reinstall npm dependencies to '.$this->buildDir.' folder, to be used by webpack.'.
+            'Reinstall npm dependencies to project folder, to be used by webpack.'.
             'Required when "node_modules" folder is corrupted.'
         );
     }
@@ -113,10 +100,7 @@ class WebpackBuildCommand extends Command
         $output->writeln('<info>Building assets.</info>');
 
 
-        $this->generateConfigFiles($input, $output);
-
-
-        $nodeModulesDir = $this->getProjectDir().'/'.$this->buildDir.'/node_modules';
+        $nodeModulesDir = $this->projectDir . '/node_modules';
         if (!file_exists($nodeModulesDir) || $input->getOption('npm-install')) {
             $output->writeln('<info>Installing npm dependencies.</info>');
             $this->npmInstall($output);
@@ -134,8 +118,7 @@ class WebpackBuildCommand extends Command
     {
         $command = [$this->npmPath, '--no-audit', 'install'];
         $output->writeln($command);
-        $path = $this->getProjectDir() . '/' . $this->buildDir;
-        $process = new Process($command, $path);
+        $process = new Process($command, $this->projectDir);
         $process->setTimeout($this->npmInstallTimeout);
 
         $process->run();
@@ -153,7 +136,7 @@ class WebpackBuildCommand extends Command
      */
     protected function buildAssets(InputInterface $input, OutputInterface $output): void
     {
-        $command = ['node_modules/webpack/bin/webpack.js'];
+        $command = ['node_modules/webpack/bin/webpack.js', '--config=webpack.app.config.js'];
         if (true === $input->getOption('no-debug') || 'prod' === $input->getOption('env')) {
             $command[] = '--mode=production';
         }
@@ -164,7 +147,7 @@ class WebpackBuildCommand extends Command
         $command[] = '--colors';
         $process = $this->nodeProcessFactory->create(
             $command,
-            $this->getProjectDir() . '/' . $this->buildDir,
+            $this->projectDir,
             $this->buildTimeout);
         $output->writeln($process->getCommandLine());
         $process->run(function ($type, $buffer) use ($output) {
@@ -175,28 +158,4 @@ class WebpackBuildCommand extends Command
         }
     }
 
-    protected function getProjectDir(){
-        if(!isset($this->projectDir)){
-            $this->projectDir = $this->getApplication()->getKernel()->getProjectDir();
-        }
-        return $this->projectDir;
-    }
-
-    /**
-     * @param InputInterface $input
-     * @param OutputInterface $output
-     */
-    private function generateConfigFiles(InputInterface $input, OutputInterface $output)
-    {
-        $theme = $input->getArgument('theme');
-        $config = $this->configProvidor->getConfig($theme);
-        file_put_contents(
-            $this->getProjectDir() . '/' . $this->buildDir . '/webpack.config.json',
-            json_encode([
-                'entry' => $config,
-                'output' => [
-                    'path' => $this->getProjectDir().'/public/bundles'
-                ]],
-                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_LINE_TERMINATORS));
-    }
 }

@@ -24,12 +24,19 @@ class DumpWebpackConfigCommand extends Command
     protected $configProvider;
 
     /**
+     * @var
+     */
+    protected $projectDir;
+
+    /**
      * DumpWebpackConfigCommand constructor.
      * @param WebpackConfigProvider $configProvider
+     * @param string $projectDir
      */
-    public function __construct(WebpackConfigProvider $configProvider)
+    public function __construct(WebpackConfigProvider $configProvider, string $projectDir)
     {
         $this->configProvider = $configProvider;
+        $this->projectDir = $projectDir;
         parent::__construct();
     }
 
@@ -39,7 +46,8 @@ class DumpWebpackConfigCommand extends Command
      */
     protected function configure()
     {
-        $this->setDescription('The command outputs webpack config.')->addArgument('theme', InputArgument::OPTIONAL, 'Theme name to build.');
+        $this->setDescription('The command outputs webpack config.')
+            ->addArgument('theme', InputArgument::OPTIONAL, 'Theme name to build.');
     }
 
     /**
@@ -47,9 +55,16 @@ class DumpWebpackConfigCommand extends Command
      */
     protected function execute(InputInterface $input, OutputInterface $output)
     {
+        $output->writeln('Dumping webpack config.');
         $theme = $input->getArgument('theme');
-        $config = $this->configProvider->getConfig($theme);
+        $config = $this->configProvider->getEntry($theme);
+        $configFileName = $this->projectDir . '/webpack.app.config.json';
+        $content = json_encode($config,
+            JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_LINE_TERMINATORS);
+        if (false === @file_put_contents($configFileName, $content)) {
+            throw new \RuntimeException('Unable to write file ' . $configFileName);
+        }
         $io = new SymfonyStyle($input, $output);
-        $io->writeln(json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_LINE_TERMINATORS));
+        $io->success('Webpack config is write to ' . $configFileName);
     }
 }
